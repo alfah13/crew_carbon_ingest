@@ -8,7 +8,9 @@ python-dotenv==1.0.0
 openpyxl==3.1.5
 xlrd >= 2.0.1
 molmass==2025.11.11
-chempy
+streamlit
+plotly
+
 # Geospatial support
 geoalchemy2==0.14.3
 shapely==2.0.2

@@ -21,5 +21,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY . .
 
+# Expose Streamlit port
+EXPOSE 8501
+
 # Default command - can be overridden in docker-compose
 CMD ["python", "scripts/run_pipeline.py"]

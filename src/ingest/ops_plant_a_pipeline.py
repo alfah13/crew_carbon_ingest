@@ -107,7 +107,7 @@ if __name__ == "__main__":
     engine = create_engine(DATABASE_URL)
     # TODO
     ##
-    WasteWaterPlantOps.__table__.drop(engine)
+    # WasteWaterPlantOps.__table__.drop(engine)
 
     WasteWaterPlantOps.__table__.create(engine)
     ops_plant_data = run_ops_plant_a()

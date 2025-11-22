@@ -10,7 +10,7 @@ if __name__ == "__main__":
     engine = create_engine(DATABASE_URL)
     Session = sessionmaker(bind=engine)
     session = Session()
-
+    # WastewaterPlants.__table__.drop(engine)
     WastewaterPlants.__table__.create(engine)
     # Create facilities
     plant_a = WastewaterPlants(

@@ -5,7 +5,7 @@ import pandas as pd
 from src.models.schemas import CO2RemovalCalculation, CrewCarbonLabReadings, WasteWaterPlantOps, WastewaterPlants
 from sqlalchemy.sql import func
 from sqlalchemy.orm import sessionmaker
-
+import os
 
 def calculate_co2_removal_from_sources(
     session: Session,

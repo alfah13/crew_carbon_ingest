@@ -1,7 +1,7 @@
-
 import pandas as pd
-from src.utils.logging_config import setup_logger
+
 from src.models.schemas import WasteWaterPlantOps
+from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)
 
@@ -14,13 +14,13 @@ def run_ops_plant_a():
     print("done loading files")
     # Define all column mappings
     OPERATOR_COLUMN_MAPPING = {
-        'Plnt Ef_50050_FLOW MGD_MGD_Daily': 'actual_eff_flow_mgd',
-        'Max Effluent Flow_50047_FLOW MAX MGD_MGD_Daily': 'max_eff_flow_mgd',
-        'Min Effluent Flow_50048_FLOW MIN MGD_MGD_Daily': 'min_eff_flow_mgd',
-        'Bypass_50050_FLOW MGD_MGD_Daily': 'bypass_flow_mgd',
-        'Bypass_DIVERSION/HRS_HRS/DAY_Daily': 'bypass_hours_per_day',
-        'INFLUENT DATA_1_RAW_INF_FLOW_Unnamed: 1_level_5_MGD': 'raw_influent_flow_mgd',
-        'EFFLUENT DATA_7_FIN_EFF_FLOW_Unnamed: 7_level_5_MGD': 'fin_eff_flow_mgd'
+        "Plnt Ef_50050_FLOW MGD_MGD_Daily": "actual_eff_flow_mgd",
+        "Max Effluent Flow_50047_FLOW MAX MGD_MGD_Daily": "max_eff_flow_mgd",
+        "Min Effluent Flow_50048_FLOW MIN MGD_MGD_Daily": "min_eff_flow_mgd",
+        "Bypass_50050_FLOW MGD_MGD_Daily": "bypass_flow_mgd",
+        "Bypass_DIVERSION/HRS_HRS/DAY_Daily": "bypass_hours_per_day",
+        "INFLUENT DATA_1_RAW_INF_FLOW_Unnamed: 1_level_5_MGD": "raw_influent_flow_mgd",
+        "EFFLUENT DATA_7_FIN_EFF_FLOW_Unnamed: 7_level_5_MGD": "fin_eff_flow_mgd",
     }
 
     def standardize_operator_columns(df, date_col_pattern=None):
@@ -35,14 +35,16 @@ def run_ops_plant_a():
             DataFrame with standardized column names
         """
         logger.info(
-            f"Standardizing columns for dataframe with {len(df.columns)} columns")
+            f"Standardizing columns for dataframe with {len(df.columns)} columns"
+        )
 
         # Replace \n with underscores
-        df.columns = df.columns.str.replace('\n', '_')
+        df.columns = df.columns.str.replace("\n", "_")
 
         # Rename known columns
         existing_renames = {
-            k: v for k, v in OPERATOR_COLUMN_MAPPING.items() if k in df.columns}
+            k: v for k, v in OPERATOR_COLUMN_MAPPING.items() if k in df.columns
+        }
         df.rename(columns=existing_renames, inplace=True)
 
         logger.info(f"Renamed {len(existing_renames)} columns")
@@ -51,44 +53,51 @@ def run_ops_plant_a():
         if date_col_pattern:
             date_cols = [col for col in df.columns if date_col_pattern in col]
             if date_cols:
-                df.rename(columns={date_cols[0]: 'date'}, inplace=True)
+                df.rename(columns={date_cols[0]: "date"}, inplace=True)
                 logger.info(f"Renamed date column: {date_cols[0]} -> date")
 
-        return df[['date', 'actual_eff_flow_mgd', 'max_eff_flow_mgd', 'min_eff_flow_mgd',
-                   'bypass_flow_mgd', 'bypass_hours_per_day']]
+        return df[
+            [
+                "date",
+                "actual_eff_flow_mgd",
+                "max_eff_flow_mgd",
+                "min_eff_flow_mgd",
+                "bypass_flow_mgd",
+                "bypass_hours_per_day",
+            ]
+        ]
 
     # Usage
     plant_a_apr25_fpath = standardize_operator_columns(
-        plant_a_apr25_fpath,
-        date_col_pattern='OPERATOR DATA_Daily_4'
+        plant_a_apr25_fpath, date_col_pattern="OPERATOR DATA_Daily_4"
     )
-    plant_a_apr25_fpath['source_file'] = 'PLANT_A-OPS DATA-APR25'
-    plant_a_apr25_fpath['plant_id'] = "PLANT_A"
+    plant_a_apr25_fpath["source_file"] = "PLANT_A-OPS DATA-APR25"
+    plant_a_apr25_fpath["plant_id"] = "PLANT_A"
 
     plant_a_may25_fpath = standardize_operator_columns(
-        plant_a_may25_fpath,
-        date_col_pattern='OPERATOR DATA_Daily_5'
+        plant_a_may25_fpath, date_col_pattern="OPERATOR DATA_Daily_5"
     )
-    plant_a_may25_fpath['source_file'] = 'PLANT_A-OPS DATA-JUNE25'
-    plant_a_may25_fpath['plant_id'] = "PLANT_A"
+    plant_a_may25_fpath["source_file"] = "PLANT_A-OPS DATA-JUNE25"
+    plant_a_may25_fpath["plant_id"] = "PLANT_A"
 
     plant_a_jun25_fpath = standardize_operator_columns(
-        plant_a_jun25_fpath,
-        date_col_pattern='OPERATOR DATA_Daily_6'
+        plant_a_jun25_fpath, date_col_pattern="OPERATOR DATA_Daily_6"
     )
-    plant_a_jun25_fpath['source_file'] = 'PLANT_A-OPS DATA-MAY25'
-    plant_a_jun25_fpath['plant_id'] = "PLANT_A"
+    plant_a_jun25_fpath["source_file"] = "PLANT_A-OPS DATA-MAY25"
+    plant_a_jun25_fpath["plant_id"] = "PLANT_A"
 
     plant_a_combined_df = pd.concat(
-        [plant_a_apr25_fpath, plant_a_may25_fpath, plant_a_jun25_fpath], ignore_index=True)
+        [plant_a_apr25_fpath, plant_a_may25_fpath, plant_a_jun25_fpath],
+        ignore_index=True,
+    )
 
-    plant_a_combined_df['date'] = pd.to_datetime(
-        plant_a_combined_df['date'], errors='coerce')
+    plant_a_combined_df["date"] = pd.to_datetime(
+        plant_a_combined_df["date"], errors="coerce"
+    )
 
-    # Keep only valid dates
-    plant_a_combined_df = plant_a_combined_df[plant_a_combined_df['date'].notna(
-    )]
-
+    plant_a_combined_df =
+    plant_a_combined_df[
+        plant_a_combined_df["date"].notna()]
 
     logger.info("All dataframes standardized")
 
@@ -96,14 +105,15 @@ def run_ops_plant_a():
 
 
 if __name__ == "__main__":
-    from sqlalchemy import create_engine, inspect
-    from src.models.schemas import WastewaterPlants, WasteWaterPlantOps, CrewCarbonLabReadings
     import os
-    import json
-    from src.utils.logging_config import setup_logger
-    import pandas as pd
 
-    DATABASE_URL = os.getenv('DATABASE_URL')
+    import pandas as pd
+    from sqlalchemy import create_engine
+
+    from src.models.schemas import WasteWaterPlantOps
+    from src.utils.logging_config import setup_logger
+
+    DATABASE_URL = os.getenv("DATABASE_URL")
     engine = create_engine(DATABASE_URL)
     # TODO
     ##
@@ -117,8 +127,8 @@ if __name__ == "__main__":
         name=WasteWaterPlantOps.__tablename__,
         con=engine,
         # schema=WasteWaterPlantOps,
-        if_exists='append',
+        if_exists="append",
         index=False,
-        chunksize=500
+        chunksize=500,
     )
-    print(f"✓ Successfully wrote all data to ops_plant_data")
+    print("✓ Successfully wrote all data to ops_plant_data")

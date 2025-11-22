@@ -87,7 +87,7 @@ def load_calcium_readings(plant_id=None, start_date=None, end_date=None):
 st.set_page_config(page_title="CO2 Removal Dashboard", layout="wide")
 
 st.title("🌍 CO2 Removal Dashboard")
-st.markdown("Monitor calcium levels and CO2 removal across wastewater treatment plants")
+st.markdown("Monitor Ca levels and CO2 removal in wastewater plants")
 
 # Sidebar filters
 st.sidebar.header("Filters")
@@ -95,7 +95,8 @@ st.sidebar.header("Filters")
 # Get available plants
 engine = create_engine(DATABASE_URL)
 plants_df = pd.read_sql(
-    "SELECT DISTINCT plant_id FROM crew_carbon_co2_removal_calculations ORDER BY plant_id",
+    "SELECT DISTINCT plant_id FROM crew_carbon_co2_removal_calculations "
+    "ORDER BY plant_id",
     engine,
 )
 plant_options = ["All"] + plants_df["plant_id"].tolist()
@@ -142,7 +143,9 @@ fig_co2 = px.line(
     y="co2_removed_metric_tons_per_day",
     color="plant_id" if selected_plant == "All" else None,
     title="Daily CO2 Removal",
-    labels={"co2_removed_metric_tons_per_day": "CO2 Removed (MT/day)", "date": "Date"},
+    labels={
+        "co2_removed_metric_tons_per_day": "CO2 Removed (MT/day)",
+        "date": "Date"},
 )
 fig_co2.update_layout(height=400)
 st.plotly_chart(fig_co2, use_container_width=True)

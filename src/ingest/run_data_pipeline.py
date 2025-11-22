@@ -29,8 +29,7 @@ def clean_and_filter_data(df):
             if obj is None or pd.isna(obj):
                 return None
             if isinstance(obj, dict):
-                cleaned = {k: (None if pd.isna(v) else v) for k, v 
-                in obj.items()}
+                cleaned = {k: (None if pd.isna(v) else v) for k, v in obj.items()}
                 return json.dumps(cleaned)
             return None
 

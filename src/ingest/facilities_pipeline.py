@@ -1,12 +1,10 @@
-from sqlalchemy import create_engine, Column, String, Integer, DateTime
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
 from src.models.schemas import WastewaterPlants
 import os
 
 if __name__ == "__main__":
-    DATABASE_URL = os.getenv('DATABASE_URL')
+    DATABASE_URL = os.getenv("DATABASE_URL")
     engine = create_engine(DATABASE_URL)
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -14,21 +12,21 @@ if __name__ == "__main__":
     WastewaterPlants.__table__.create(engine)
     # Create facilities
     plant_a = WastewaterPlants(
-        plant_id='PLANT_A',
-        operator='Connecticut Water Authority',
-        city='New Haven',
-        state='CT',
-        country='USA',
-        active=True
+        plant_id="PLANT_A",
+        operator="Connecticut Water Authority",
+        city="New Haven",
+        state="CT",
+        country="USA",
+        active=True,
     )
 
     plant_b = WastewaterPlants(
-        plant_id='PLANT_B',
-        operator='New York City DEP',
-        city='New York',
-        state='NY',
-        country='USA',
-        active=False
+        plant_id="PLANT_B",
+        operator="New York City DEP",
+        city="New York",
+        state="NY",
+        country="USA",
+        active=False,
     )
 
     # Add and commit

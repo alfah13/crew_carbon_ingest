@@ -1,17 +1,20 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import create_engine, select
-from datetime import date, datetime
-import pandas as pd
-from src.models.schemas import CO2RemovalCalculation, CrewCarbonLabReadings, WasteWaterPlantOps, WastewaterPlants
-from sqlalchemy.sql import func
-from sqlalchemy.orm import sessionmaker
 import os
+from datetime import date, datetime
+
+import pandas as pd
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.sql import func
+
+from src.models.schemas import (CO2RemovalCalculation, CrewCarbonLabReadings,
+                                WasteWaterPlantOps)
+
 
 def calculate_co2_removal_from_sources(
     session: Session,
     plant_id: str,  # Changed to String
     calc_date: date,
-    quality_flag: str = None
+    quality_flag: str = None,
 ) -> CO2RemovalCalculation:
     """
     Calculate CO2 removal by joining ops data and lab readings
@@ -27,33 +30,44 @@ def calculate_co2_removal_from_sources(
     """
 
     # Get ops data for this plant and date
-    ops = session.query(WasteWaterPlantOps).filter(
-        WasteWaterPlantOps.plant_id == plant_id,
-        WasteWaterPlantOps.date == calc_date
-    ).first()
+    ops = (
+        session.query(WasteWaterPlantOps)
+        .filter(
+            WasteWaterPlantOps.plant_id == plant_id,
+            WasteWaterPlantOps.date == calc_date,
+        )
+        .first()
+    )
 
     if not ops:
         raise ValueError(f"No ops data found for {plant_id} on {calc_date}")
 
     # Get calcium readings for this plant and date
     # Assuming upstream is 'primary_clarifier' and downstream is 'secondary_clarifier'
-    ca_upstream_reading = session.query(CrewCarbonLabReadings).filter(
-        CrewCarbonLabReadings.plant_id == plant_id,
-        CrewCarbonLabReadings.parameter_name == 'calcium',
-        CrewCarbonLabReadings.plant_unit_id == 'primary_clarifier',
-        func.date(CrewCarbonLabReadings.datetime) == calc_date
-    ).first()
+    ca_upstream_reading = (
+        session.query(CrewCarbonLabReadings)
+        .filter(
+            CrewCarbonLabReadings.plant_id == plant_id,
+            CrewCarbonLabReadings.parameter_name == "calcium",
+            CrewCarbonLabReadings.plant_unit_id == "primary_clarifier",
+            func.date(CrewCarbonLabReadings.datetime) == calc_date,
+        )
+        .first()
+    )
 
-    ca_downstream_reading = session.query(CrewCarbonLabReadings).filter(
-        CrewCarbonLabReadings.plant_id == plant_id,
-        CrewCarbonLabReadings.parameter_name == 'calcium',
-        CrewCarbonLabReadings.plant_unit_id == 'secondary_clarifier',
-        func.date(CrewCarbonLabReadings.datetime) == calc_date
-    ).first()
+    ca_downstream_reading = (
+        session.query(CrewCarbonLabReadings)
+        .filter(
+            CrewCarbonLabReadings.plant_id == plant_id,
+            CrewCarbonLabReadings.parameter_name == "calcium",
+            CrewCarbonLabReadings.plant_unit_id == "secondary_clarifier",
+            func.date(CrewCarbonLabReadings.datetime) == calc_date,
+        )
+        .first()
+    )
 
     if not ca_upstream_reading or not ca_downstream_reading:
-        raise ValueError(
-            f"Missing calcium readings for {plant_id} on {calc_date}")
+        raise ValueError(f"Missing calcium readings for {plant_id} on {calc_date}")
 
     # Extract values
     ca_upstream = ca_upstream_reading.value
@@ -102,7 +116,7 @@ def calculate_co2_removal_from_sources(
         caco3_mg=caco3_mg,
         co2_mg=co2_mg,
         co2_removed_metric_tons_per_day=co2_mt_day,
-        quality_flag=quality_flag
+        quality_flag=quality_flag,
     )
 
     session.add(calc)
@@ -111,10 +125,7 @@ def calculate_co2_removal_from_sources(
 
 
 def bulk_calculate_co2_removal(
-    session: Session,
-    plant_id: str,
-    start_date: date = None,
-    end_date: date = None
+    session: Session, plant_id: str, start_date: date = None, end_date: date = None
 ) -> list[CO2RemovalCalculation]:
     """Calculate CO2 removal for a range of dates"""
 
@@ -137,11 +148,12 @@ def bulk_calculate_co2_removal(
                 session=session,
                 plant_id=plant_id,
                 calc_date=calc_date,
-                quality_flag='VALID'
+                quality_flag="VALID",
             )
             results.append(calc)
             print(
-                f"✓ Calculated CO2 for {plant_id} on {calc_date}: {calc.co2_removed_metric_tons_per_day:.6f} MT/day")
+                f"✓ Calculated CO2 for {plant_id} on {calc_date}: {calc.co2_removed_metric_tons_per_day:.6f} MT/day"
+            )
         except ValueError as e:
             print(f"✗ Skipped {calc_date}: {e}")
 
@@ -150,7 +162,7 @@ def bulk_calculate_co2_removal(
 
 # Usage
 if __name__ == "__main__":
-    DATABASE_URL = os.getenv('DATABASE_URL')
+    DATABASE_URL = os.getenv("DATABASE_URL")
     engine = create_engine(DATABASE_URL)
     CO2RemovalCalculation.__table__.drop(engine, checkfirst=True)
     CO2RemovalCalculation.__table__.create(engine, checkfirst=True)
@@ -158,7 +170,7 @@ if __name__ == "__main__":
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    plants = ['PLANT_A', 'PLANT_B']
+    plants = ["PLANT_A", "PLANT_B"]
     all_results = {}
 
     for plant_id in plants:
@@ -167,7 +179,7 @@ if __name__ == "__main__":
             session=session,
             plant_id=plant_id,
             start_date=date(2025, 4, 1),
-            end_date=date(2025, 6, 30)
+            end_date=date(2025, 6, 30),
         )
         all_results[plant_id] = results
 

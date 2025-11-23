@@ -3,7 +3,7 @@ import os
 import pandas as pd
 from sqlalchemy import create_engine
 
-from src.models.schemas import WasteWaterPlantOps
+from src.models.schemas import WasteWaterPlantOperation
 from src.utils.logging_config import setup_logger
 
 
@@ -32,9 +32,7 @@ def run_ops_plant_b():
             df = pd.read_excel(fpath, header=[5, 6, 7, 8, 9, 10, 11])
 
             # Clean columns
-            df.columns = [
-                "_".join(str(x) for x in col).strip() for col in df.columns.values
-            ]
+            df.columns = ["_".join(str(x) for x in col).strip() for col in df.columns.values]
 
             initial_rows = len(df)
 
@@ -44,22 +42,16 @@ def run_ops_plant_b():
 
             # Drop rows with summary statistics
             date_col = (
-                [col for col in df.columns if "DATE" in col][0]
-                if any("DATE" in col for col in df.columns)
-                else None
+                [col for col in df.columns if "DATE" in col][0] if any("DATE" in col for col in df.columns) else None
             )
 
             if date_col:
                 df = df[~df[date_col].isin(exclude_values)]
                 dropped_summaries = initial_rows - dropped_all_na - len(df)
-                logger.info(
-                    f"  Dropped {dropped_summaries} rows with TOTAL/MAX/MIN/AVG"
-                )
+                logger.info(f"  Dropped {dropped_summaries} rows with TOTAL/MAX/MIN/AVG")
             else:
                 dropped_summaries = 0
-                logger.warning(
-                    "  Could not find DATE column to filter TOTAL/MAX/MIN/AVG"
-                )
+                logger.warning("  Could not find DATE column to filter TOTAL/MAX/MIN/AVG")
 
             df["source_file"] = name
             df["plant_id"] = "PLANT_B"
@@ -75,19 +67,14 @@ def run_ops_plant_b():
     combined_df = pd.concat(all_dataframes, ignore_index=True)
     combined_df.rename(
         columns={
-            "EFFLUENT DATA_7_FIN_EFF_FLOW_Unnamed: 7_level_5_MGD": 
-            "actual_eff_flow_mgd",
-            "INFLUENT DATA_1_RAW_INF_FLOW_Unnamed: 1_level_5_MGD": 
-            "actual_inf_flow_mgd",
-            "Unnamed: 0_level_0_Unnamed: 0_level_1_DATE_Unnamed: 0_level_3_Unnamed: 0_level_4_Unnamed: 0_level_5_Unnamed: 0_level_6": 
-            "date",
+            "EFFLUENT DATA_7_FIN_EFF_FLOW_Unnamed: 7_level_5_MGD": "actual_eff_flow_mgd",
+            "INFLUENT DATA_1_RAW_INF_FLOW_Unnamed: 1_level_5_MGD": "actual_inf_flow_mgd",
+            "Unnamed: 0_level_0_Unnamed: 0_level_1_DATE_Unnamed: 0_level_3_Unnamed: 0_level_4_Unnamed: 0_level_5_Unnamed: 0_level_6": "date",
         },
         inplace=True,
     )
 
-    logger.info(
-        f"Combined: {combined_df.shape[0]} rows x {combined_df.shape[1]} columns"
-    )
+    logger.info(f"Combined: {combined_df.shape[0]} rows x {combined_df.shape[1]} columns")
     combined_df["date"] = pd.to_datetime(combined_df["date"], errors="coerce")
 
     # Keep only valid dates
@@ -104,23 +91,23 @@ def run_ops_plant_b():
     ]
 
 
-if __name__ == "__main__":
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    engine = create_engine(DATABASE_URL)
-    # TODO
-    ##
-    # WasteWaterPlantOps.__table__.drop(engine)
+# if __name__ == "__main__":
+#     DATABASE_URL = os.getenv("DATABASE_URL")
+#     engine = create_engine(DATABASE_URL)
+#     # TODO
+#     ##
+#     # WasteWaterPlantOps.__table__.drop(engine)
 
-    # WasteWaterPlantOps.__table__.create(engine)
-    ops_plant_data = run_ops_plant_b()
+#     # WasteWaterPlantOps.__table__.create(engine)
+#     ops_plant_data = run_ops_plant_b()
 
-    print(f"Writing {len(ops_plant_data)} ops_plant_data...")
-    ops_plant_data.to_sql(
-        name=WasteWaterPlantOps.__tablename__,
-        con=engine,
-        # schema=WasteWaterPlantOps,
-        if_exists="append",
-        index=False,
-        chunksize=500,
-    )
-    print("✓ Successfully wrote all data to ops_plant_data")
+#     print(f"Writing {len(ops_plant_data)} ops_plant_data...")
+#     ops_plant_data.to_sql(
+#         name=WasteWaterPlantOps.__tablename__,
+#         con=engine,
+#         # schema=WasteWaterPlantOps,
+#         if_exists="append",
+#         index=False,
+#         chunksize=500,
+#     )
+#     print("✓ Successfully wrote all data to ops_plant_data")

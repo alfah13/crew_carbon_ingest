@@ -6,8 +6,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql import func
 
-from src.models.schemas import (CO2RemovalCalculation, CrewCarbonLabReadings,
-                                WasteWaterPlantOps)
+from src.models.schemas import CO2RemovalCalculation, CrewCarbonLabReadings, WasteWaterPlantOps
 
 
 def calculate_co2_removal_from_sources(
@@ -130,9 +129,7 @@ def bulk_calculate_co2_removal(
     """Calculate CO2 removal for a range of dates"""
 
     # Get all ops dates for this plant
-    query = session.query(WasteWaterPlantOps.date).filter(
-        WasteWaterPlantOps.plant_id == plant_id
-    )
+    query = session.query(WasteWaterPlantOps.date).filter(WasteWaterPlantOps.plant_id == plant_id)
 
     if start_date:
         query = query.filter(WasteWaterPlantOps.date >= start_date)
@@ -151,9 +148,7 @@ def bulk_calculate_co2_removal(
                 quality_flag="VALID",
             )
             results.append(calc)
-            print(
-                f"✓ Calculated CO2 for {plant_id} on {calc_date}: {calc.co2_removed_metric_tons_per_day:.6f} MT/day"
-            )
+            print(f"✓ Calculated CO2 for {plant_id} on {calc_date}: {calc.co2_removed_metric_tons_per_day:.6f} MT/day")
         except ValueError as e:
             print(f"✗ Skipped {calc_date}: {e}")
 
@@ -191,8 +186,5 @@ if __name__ == "__main__":
         print(f"  Avg daily: {avg_co2:.4f} MT/day")
 
     # Grand total
-    grand_total = sum(
-        sum(r.co2_removed_metric_tons_per_day for r in results)
-        for results in all_results.values()
-    )
+    grand_total = sum(sum(r.co2_removed_metric_tons_per_day for r in results) for results in all_results.values())
     print(f"\n=== Grand Total CO2 Removed: {grand_total:.2f} MT ===")

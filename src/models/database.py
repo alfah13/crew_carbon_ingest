@@ -2,29 +2,29 @@
 """
 Database connection and session management with TimescaleDB + PostGIS support
 """
-from sqlalchemy import create_engine, text, event
-from sqlalchemy.orm import sessionmaker, Session as SQLAlchemySession
-from contextlib import contextmanager
 import os
-from typing import Generator
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Generator
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session as SQLAlchemySession
+from sqlalchemy.orm import sessionmaker
 
-from src.models.schemas import Base
 from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)
 
 # Load .env file
 # Look for .env in project root
-env_path = Path(__file__).parent.parent.parent / '.env'
+env_path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 # Get configuration from environment
-DATABASE_URL = os.getenv('DATABASE_URL')
-ENV = os.getenv('ENV', 'development')
+DATABASE_URL = os.getenv("DATABASE_URL")
+ENV = os.getenv("ENV", "development")
 
 # Validate required environment variables
 if not DATABASE_URL:
@@ -34,7 +34,9 @@ if not DATABASE_URL:
     )
 
 logger.info(f"Environment: {ENV}")
-logger.info(f"Database URL: {DATABASE_URL.replace(DATABASE_URL.split('@')[0].split('//')[1], '***')}")  # Hide password in logs
+logger.info(
+    f"Database URL: {DATABASE_URL.replace(DATABASE_URL.split('@')[0].split('//')[1], '***')}"
+)  # Hide password in logs
 
 # Create SQLAlchemy engine
 engine = create_engine(
@@ -42,16 +44,12 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
-    echo=(ENV == 'development'),  # Show SQL queries in development
-    pool_recycle=3600
+    echo=(ENV == "development"),  # Show SQL queries in development
+    pool_recycle=3600,
 )
 
 # Session factory
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 @contextmanager

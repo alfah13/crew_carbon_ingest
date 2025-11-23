@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.models.schemas import WasteWaterPlantOps
+from src.models.schemas import WasteWaterPlantOperation
 from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)
@@ -34,17 +34,13 @@ def run_ops_plant_a():
         Returns:
             DataFrame with standardized column names
         """
-        logger.info(
-            f"Standardizing columns for dataframe with {len(df.columns)} columns"
-        )
+        logger.info(f"Standardizing columns for dataframe with {len(df.columns)} columns")
 
         # Replace \n with underscores
         df.columns = df.columns.str.replace("\n", "_")
 
         # Rename known columns
-        existing_renames = {
-            k: v for k, v in OPERATOR_COLUMN_MAPPING.items() if k in df.columns
-        }
+        existing_renames = {k: v for k, v in OPERATOR_COLUMN_MAPPING.items() if k in df.columns}
         df.rename(columns=existing_renames, inplace=True)
 
         logger.info(f"Renamed {len(existing_renames)} columns")
@@ -68,21 +64,15 @@ def run_ops_plant_a():
         ]
 
     # Usage
-    plant_a_apr25_fpath = standardize_operator_columns(
-        plant_a_apr25_fpath, date_col_pattern="OPERATOR DATA_Daily_4"
-    )
+    plant_a_apr25_fpath = standardize_operator_columns(plant_a_apr25_fpath, date_col_pattern="OPERATOR DATA_Daily_4")
     plant_a_apr25_fpath["source_file"] = "PLANT_A-OPS DATA-APR25"
     plant_a_apr25_fpath["plant_id"] = "PLANT_A"
 
-    plant_a_may25_fpath = standardize_operator_columns(
-        plant_a_may25_fpath, date_col_pattern="OPERATOR DATA_Daily_5"
-    )
+    plant_a_may25_fpath = standardize_operator_columns(plant_a_may25_fpath, date_col_pattern="OPERATOR DATA_Daily_5")
     plant_a_may25_fpath["source_file"] = "PLANT_A-OPS DATA-JUNE25"
     plant_a_may25_fpath["plant_id"] = "PLANT_A"
 
-    plant_a_jun25_fpath = standardize_operator_columns(
-        plant_a_jun25_fpath, date_col_pattern="OPERATOR DATA_Daily_6"
-    )
+    plant_a_jun25_fpath = standardize_operator_columns(plant_a_jun25_fpath, date_col_pattern="OPERATOR DATA_Daily_6")
     plant_a_jun25_fpath["source_file"] = "PLANT_A-OPS DATA-MAY25"
     plant_a_jun25_fpath["plant_id"] = "PLANT_A"
 
@@ -91,44 +81,39 @@ def run_ops_plant_a():
         ignore_index=True,
     )
 
-    plant_a_combined_df["date"] = pd.to_datetime(
-        plant_a_combined_df["date"], errors="coerce"
-    )
+    plant_a_combined_df["date"] = pd.to_datetime(plant_a_combined_df["date"], errors="coerce")
 
-    plant_a_combined_df =
-    plant_a_combined_df[
-        plant_a_combined_df["date"].notna()]
+    plant_a_combined_df = plant_a_combined_df[plant_a_combined_df["date"].notna()]
 
     logger.info("All dataframes standardized")
 
     return plant_a_combined_df
 
 
-if __name__ == "__main__":
-    import os
+# if __name__ == "__main__":
+#     import os
 
-    import pandas as pd
-    from sqlalchemy import create_engine
+#     import pandas as pd
+#     from sqlalchemy import create_engine
 
-    from src.models.schemas import WasteWaterPlantOps
-    from src.utils.logging_config import setup_logger
+#     from src.models.schemas import WasteWaterPlantOps
+#     from src.utils.logging_config import setup_logger
 
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    engine = create_engine(DATABASE_URL)
-    # TODO
-    ##
-    # WasteWaterPlantOps.__table__.drop(engine)
+#     DATABASE_URL = os.getenv("DATABASE_URL")
+#     engine = create_engine(DATABASE_URL)
+#     # TODO
+#     ##
+#     # WasteWaterPlantOps.__table__.drop(engine)
 
-    WasteWaterPlantOps.__table__.create(engine)
-    ops_plant_data = run_ops_plant_a()
+#     ops_plant_data = run_ops_plant_a()
 
-    print(f"Writing {len(ops_plant_data)} ops_plant_data...")
-    ops_plant_data.to_sql(
-        name=WasteWaterPlantOps.__tablename__,
-        con=engine,
-        # schema=WasteWaterPlantOps,
-        if_exists="append",
-        index=False,
-        chunksize=500,
-    )
-    print("✓ Successfully wrote all data to ops_plant_data")
+#     print(f"Writing {len(ops_plant_data)} ops_plant_data...")
+#     ops_plant_data.to_sql(
+#         name=WasteWaterPlantOps.__tablename__,
+#         con=engine,
+#         # schema=WasteWaterPlantOps,
+#         if_exists="append",
+#         index=False,
+#         chunksize=500,
+#     )
+#     print("✓ Successfully wrote all data to ops_plant_data")

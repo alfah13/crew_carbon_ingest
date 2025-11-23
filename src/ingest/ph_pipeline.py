@@ -1,25 +1,31 @@
 import json
-import logging
 
 import pandas as pd
 
 from src.ingest.utils import transform_crew_data
-from src.models.schemas import CrewCarbonLabReadings
+from src.models.schemas import CrewCarbonLabReading
+from src.utils.logging_config import setup_logger
 
 
 def run_ph_pipeline():
-    logger = logging.getLogger(__name__)
+    """
+    runner for the logic behind
+    the pH data ingest
+    uses a generalized utility func
+    called transform_crew_data
+    """
+    logger = setup_logger(__name__)
     FPATH1 = "data/minute_data/WB0038_PH_2025_sanitized.csv"
     FPATH2 = "data/minute_data/WB0039_PH_2025_sanitized.csv"
     minute_data_ph1 = pd.read_csv(FPATH1)
     minute_data_ph1["source_file"] = FPATH1
+    logger.info(f"[run_ph_pipeline]: Done Loading CSV from {FPATH1}")
 
     minute_data_ph2 = pd.read_csv(FPATH2)
     minute_data_ph2["source_file"] = FPATH2
+    logger.info(f"[run_ph_pipeline]: Done Loading CSV from {FPATH2}")
 
-    ph_minute = pd.concat(
-        [minute_data_ph1, minute_data_ph2], ignore_index=True, sort=False
-    )
+    ph_minute = pd.concat([minute_data_ph1, minute_data_ph2], ignore_index=True, sort=False)
     ph_minute["medium"] = "aqueous"
 
     transformed_ph_minute = transform_crew_data(
@@ -36,27 +42,23 @@ def run_ph_pipeline():
             "medium",
         ],
         columns_rename_mapper={
-            "Timestamp": CrewCarbonLabReadings.datetime.name,
-            "Measurement value": CrewCarbonLabReadings.value.name,
-            "Process value": CrewCarbonLabReadings.parameter_name.name,
-            "Unit": CrewCarbonLabReadings.unit.name,
-            "unit_type_id": CrewCarbonLabReadings.plant_unit_id.name,
+            "Timestamp": CrewCarbonLabReading.datetime.name,
+            "Measurement value": CrewCarbonLabReading.value.name,
+            "Process value": CrewCarbonLabReading.parameter_name.name,
+            "Unit": CrewCarbonLabReading.unit.name,
+            "unit_type_id": CrewCarbonLabReading.plant_unit_id.name,
         },
         column_dtype_mapper={
-            CrewCarbonLabReadings.value.name: "float64",
-            CrewCarbonLabReadings.datetime.name: "datetime64[ns]",
+            CrewCarbonLabReading.value.name: "float64",
+            CrewCarbonLabReading.datetime.name: "datetime64[ns]",
         },
         metadata_col_name="reading_metadata",
     )
+    logger.info(f"[run_ph_pipeline]: Done transforming `transformed_ph_minute` ")
 
-    transformed_ph_minute["reading_metadata"] = transformed_ph_minute[
-        "reading_metadata"
-    ].apply(
-        lambda x: (
-            json.dumps({k: (None if pd.isna(v) else v) for k, v in x.items()})
-            if isinstance(x, dict)
-            else None
-        )
+    transformed_ph_minute["reading_metadata"] = transformed_ph_minute["reading_metadata"].apply(
+        lambda x: (json.dumps({k: (None if pd.isna(v) else v) for k, v in x.items()}) if isinstance(x, dict) else None)
     )
+    logger.info(f"[run_ph_pipeline]: Done compressing `reading_metadata` ")
 
     return transformed_ph_minute

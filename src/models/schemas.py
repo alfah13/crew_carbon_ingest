@@ -1,85 +1,91 @@
 """
-SQLAlchemy models with TimescaleDB + PostGIS support
+We define four schemas that help us normalized both the input data and the MRV calculation data
 """
+
 from datetime import datetime
 
-import pytz
-from geoalchemy2 import Geometry
-from sqlalchemy import (ARRAY, DECIMAL, JSON, TIMESTAMP, Boolean,
-                        CheckConstraint, Column, Date, DateTime, Float,
-                        ForeignKey, Index, Integer, Interval, String, Text)
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    Integer,
+    String,
+)
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, validates
 from sqlalchemy.sql import func
-
-from src.models.constants import VALID_TIMEZONES, TimezoneEnum
 
 Base = declarative_base()
 
 
-class WastewaterPlants(Base):
-    __tablename__ = 'wastewater_plants'
+class WastewaterPlant(Base):
+    __tablename__ = "wastewater_plant_metadata"
 
-    id = Column(Integer, primary_key=True)
-    plant_id = Column(String, nullable=False)
-    city = Column(String, nullable=False)
-    state = Column(String, nullable=False)
-    country = Column(String, nullable=False)
-    operator = Column(String, nullable=False)
-    active = Column(Boolean, nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="internal id for each ww plant")
+    plant_id = Column(String, nullable=False, comment="human readable id for each ww plant")
+    city = Column(String, nullable=False, comment="city of ww plant")
+    state = Column(String, nullable=False, comment="state/region where plant is located")
+    country = Column(String, nullable=False, comment="country where plant is located")
+    operator = Column(String, nullable=False, comment="organization operating the plant")
+    active = Column(Boolean, nullable=False, comment="status of plant - 0 = inactive, 1 = active")
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow,
-                        onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class CrewCarbonLabReadings(Base):
-    __tablename__ = 'crew_carbon_lab_readings'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    reading_id = Column(String, nullable=True)
-    plant_id = Column(String, nullable=False, index=True)
-    plant_unit_id = Column(String, nullable=True, index=False)
-    source_file = Column(String, nullable=False)
-    sensor_id = Column(String, nullable=True)
-    datetime = Column(DateTime, nullable=False, index=True)
-    parameter_name = Column(String, nullable=False, index=True)
-    medium = Column(String, nullable=False, index=True)
-    value = Column(Float, nullable=False)
-    unit = Column(String, nullable=False)
-    uncertainty = Column(Float, nullable=True)
-    reading_metadata = Column(JSON, nullable=True)
+class CrewCarbonLabReading(Base):
+    __tablename__ = "crewcarbon_lab_reading"
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="internal id for each reading")
+    reading_id = Column(String, nullable=True, comment="id for each reading per source doocument")
+    plant_id = Column(String, nullable=False, index=True, comment="human readable id for each ww plant")
+    plant_unit_id = Column(
+        String,
+        nullable=True,
+        index=False,
+        comment="human readable id for each ww plant unit - can be primary calrifier or secondary clarifier",
+    )
+    source_file = Column(String, nullable=False, comment="file where data came from")
+    sensor_id = Column(String, nullable=True, comment="sensor that value was collected by - if available")
+    datetime = Column(DateTime, nullable=False, index=True, comment="date and time of measurement")
+    parameter_name = Column(String, nullable=False, index=True, comment="Atom, Compound, or Parameter")
+    medium = Column(String, nullable=False, index=True, comment="Physical medium such as aqeous")
+    value = Column(Float, nullable=False, comment="actual value of reading")
+    unit = Column(String, nullable=False, comment="actual unit of reading")
+    uncertainty = Column(Float, nullable=True, comment="uncertainty reading from source file")
+    reading_metadata = Column(JSON, nullable=True, comment="all other information")
 
 
-class WasteWaterPlantOps(Base):
+class WasteWaterPlantOperation(Base):
     """Raw operational data from wastewater plant"""
-    __tablename__ = 'wastewater_plant_ops'
+
+    __tablename__ = "wastewater_plant_operation"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    plant_id = Column(String, nullable=False, index=True)
-    date = Column(Date, nullable=False, index=True)
+    plant_id = Column(String, nullable=False, index=True, comment="human readable id for each ww plant")
+    date = Column(Date, nullable=False, index=True, comment="date of reading")
 
     # Flow data
-    actual_eff_flow_mgd = Column(Float, nullable=True)
-    actual_inf_flow_mgd = Column(Float, nullable=True)
+    actual_eff_flow_mgd = Column(Float, nullable=True, comment="effluent flow of ww plant")
+    actual_inf_flow_mgd = Column(Float, nullable=True, comment="influent flow of ww plant")
     max_eff_flow_mgd = Column(Float, nullable=True)
     min_eff_flow_mgd = Column(Float, nullable=True)
-    bypass_flow_mgd = Column(Float, nullable=True)
-    bypass_hours_per_day = Column(Float, nullable=True)
+    bypass_flow_mgd = Column(Float, nullable=True, comment="bypass flow of ww plant")
+    bypass_hours_per_day = Column(Float, nullable=True, comment="bypass hours of ww plant")
 
     # Chemistry measurements
-    ca_upstream_mg_per_l = Column(
-        Float, nullable=True, comment='Upstream calcium mg/L')
-    ca_downstream_mg_per_l = Column(
-        Float, nullable=True, comment='Downstream calcium mg/L')
+    ca_upstream_mg_per_l = Column(Float, nullable=True, comment="Upstream calcium mg/L")
+    ca_downstream_mg_per_l = Column(Float, nullable=True, comment="Downstream calcium mg/L")
 
     # Metadata
-    source_file = Column(String(255), nullable=True)
+    source_file = Column(String(255), nullable=False, comment="file where data came from")
     created_at = Column(DateTime, server_default=func.now())
 
 
 class CO2RemovalCalculation(Base):
     """Calculated CO2 removal with intermediate values"""
-    __tablename__ = 'crew_carbon_co2_removal_calculations'
+
+    __tablename__ = "crewcarbon_co2_removal_calculations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     # ops_id = Column(Integer, ForeignKey(
@@ -88,28 +94,23 @@ class CO2RemovalCalculation(Base):
     date = Column(Date, nullable=False, index=True)
 
     # Inputs (denormalized)
-    ca_upstream_mg_per_l = Column(Float, nullable=False)
-    ca_downstream_mg_per_l = Column(Float, nullable=False)
-    flow_mgd = Column(Float, nullable=False)
+    ca_upstream_mg_per_l = Column(Float, nullable=False, comment="Ca conc. at primary clarifier")
+    ca_downstream_mg_per_l = Column(Float, nullable=False, comment="Ca conc. at secondary clarifier")
+    flow_mgd = Column(Float, nullable=False, comment="plant flow rate in MGD")
 
     # Intermediate calculations
-    ca_delta_mg_per_l = Column(
-        Float, nullable=False, comment='(Ca_downstream - Ca_upstream)')
-    flow_m3_per_day = Column(Float, nullable=False, comment='Flow * 3785.41')
-    flow_l_per_day = Column(Float, nullable=False, comment='Flow_m3 * 1000')
-    ca_to_caco3_ratio = Column(
-        Float, nullable=False, comment='CaCO3_mass / Ca_mass')
-    co2_to_caco3_ratio = Column(
-        Float, nullable=False, comment='CO2_mass / CaCO3_mass')
-    caco3_mg = Column(Float, nullable=False,
-                      comment='Ca_delta * Flow_L * ratio')
-    co2_mg = Column(Float, nullable=False, comment='CaCO3_mg * ratio')
+    ca_delta_mg_per_l = Column(Float, nullable=False, comment="(Ca_downstream - Ca_upstream)")
+    flow_m3_per_day = Column(Float, nullable=False, comment="Flow * 3785.41")
+    flow_l_per_day = Column(Float, nullable=False, comment="Flow_m3 * 1000")
+    ca_to_caco3_ratio = Column(Float, nullable=False, comment="CaCO3_mass / Ca_mass")
+    co2_to_caco3_ratio = Column(Float, nullable=False, comment="CO2_mass / CaCO3_mass")
+    caco3_mg = Column(Float, nullable=False, comment="Ca_delta * Flow_L * ratio")
+    co2_mg = Column(Float, nullable=False, comment="CaCO3_mg * ratio")
 
     # Final result
-    co2_removed_metric_tons_per_day = Column(
-        Float, nullable=False, comment='CO2_mg / 1e9')
+    co2_removed_metric_tons_per_day = Column(Float, nullable=False, comment="CO2_mg / 1e9")
 
     # Metadata
-    calculation_version = Column(String(20), default='v1.0')
+    calculation_version = Column(String(20), default="v1.0")
     quality_flag = Column(String(50), nullable=True)
     created_at = Column(DateTime, server_default=func.now())

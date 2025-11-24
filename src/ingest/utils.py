@@ -1,8 +1,65 @@
 import pandas as pd
 from typing import List, Dict, Optional
 import logging
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from src.models.schemas import WastewaterPlant
+from src.utils.logging_config import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
+
+
+def create_wastewater_facilities(facility_data: list[dict], database_url: str = None) -> list[WastewaterPlant]:
+    """
+    Create wastewater facility records in the database
+
+    Args:
+        facility_data: List of dicts with facility information
+        database_url: Database connection string (uses env var if not provided)
+
+    Returns:
+        List of created WastewaterPlant objects
+    """
+    if database_url is None:
+        database_url = os.getenv("DATABASE_URL")
+
+    if not database_url:
+        raise ValueError("DATABASE_URL must be provided or set as environment variable")
+
+    logger.info(f"Creating {len(facility_data)} wastewater facilities...")
+
+    engine = create_engine(database_url)
+    SessionLocal = sessionmaker(bind=engine)
+    session = SessionLocal()
+
+    created_facilities = []
+
+    try:
+        for facility in facility_data:
+            plant = WastewaterPlant(
+                plant_id=facility.get("plant_id"),
+                operator=facility.get("operator"),
+                city=facility.get("city"),
+                state=facility.get("state"),
+                country=facility.get("country", "USA"),
+                active=facility.get("active", True),
+            )
+            session.add(plant)
+            created_facilities.append(plant)
+            logger.info(f"  Added {plant.plant_id} in {plant.city}, {plant.state}")
+
+        session.commit()
+        logger.info(f"Successfully inserted {len(created_facilities)} waste water facilities")
+
+        return created_facilities
+
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Error creating facilities: {e}")
+        raise
+    finally:
+        session.close()
 
 
 def transform_crew_data(

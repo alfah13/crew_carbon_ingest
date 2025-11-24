@@ -18,7 +18,7 @@ def get_table_stats():
         "CO2 Calculations": "crewcarbon_co2_removal_calculation",
         "Lab Readings": "crewcarbon_lab_reading",
         "Plant Metadata": "wastewater_plant_metadata",
-        "Plant Operations": "wastewater_plant_operation"
+        "Plant Operations": "wastewater_plant_operation",
     }
     with engine.connect() as conn:
         for display_name, table_name in tables.items():
@@ -135,9 +135,7 @@ def load_ph_data(plant_id=None, start_date=None, end_date=None):
 def calculate_daily_ph_stats(ph_df):
     if ph_df.empty:
         return pd.DataFrame()
-    daily_stats = ph_df.groupby(["plant_id", "plant_unit_id", "date"]).agg({
-        "value": "mean"
-    }).reset_index()
+    daily_stats = ph_df.groupby(["plant_id", "plant_unit_id", "date"]).agg({"value": "mean"}).reset_index()
     daily_stats.columns = ["plant_id", "plant_unit_id", "date", "ph_mean"]
     daily_stats["date"] = pd.to_datetime(daily_stats["date"])
     return daily_stats
@@ -237,11 +235,7 @@ if not co2_df.empty:
         y="co2_removed_metric_tons_per_day",
         color=color_col,
         title="Daily CO2 Removal",
-        labels={
-            "co2_removed_metric_tons_per_day": "CO2 Removed (MT/day)",
-            "date": "Date",
-            "quality_flag": "Quality"
-        },
+        labels={"co2_removed_metric_tons_per_day": "CO2 Removed (MT/day)", "date": "Date", "quality_flag": "Quality"},
     )
     fig_co2.update_layout(height=400)
     st.plotly_chart(fig_co2, use_container_width=True)
@@ -257,11 +251,7 @@ if not co2_df.empty:
             y="ph_mean",
             color=color_col_ph,
             title="Daily Average pH Levels by Unit",
-            labels={
-                "ph_mean": "pH (Average)",
-                "date": "Date",
-                "plant_unit_id": "Unit"
-            },
+            labels={"ph_mean": "pH (Average)", "date": "Date", "plant_unit_id": "Unit"},
         )
         fig_ph.update_layout(height=400)
         st.plotly_chart(fig_ph, use_container_width=True)
@@ -269,8 +259,7 @@ if not co2_df.empty:
         # Table by day and unit
         with st.expander("View Daily pH Averages Table"):
             st.dataframe(
-                ph_daily.sort_values(["date", "plant_unit_id"], ascending=[False, True]),
-                use_container_width=True
+                ph_daily.sort_values(["date", "plant_unit_id"], ascending=[False, True]), use_container_width=True
             )
 
     st.header("Calcium Levels Over Time")
@@ -378,11 +367,7 @@ if not co2_df.empty:
         y="ca_delta_mg_per_l",
         color=color_col_delta,
         title="Calcium Delta (Downstream - Upstream)",
-        labels={
-            "ca_delta_mg_per_l": "Ca Delta (mg/L)",
-            "date": "Date",
-            "quality_flag": "Quality"
-        },
+        labels={"ca_delta_mg_per_l": "Ca Delta (mg/L)", "date": "Date", "quality_flag": "Quality"},
     )
     fig_ca_delta.update_layout(height=400)
     st.plotly_chart(fig_ca_delta, use_container_width=True)
@@ -399,11 +384,7 @@ if not co2_df.empty:
         y="flow_mgd",
         color=color_col_flow,
         title="Wastewater Flow Rate",
-        labels={
-            "flow_mgd": "Flow Rate (MGD)",
-            "date": "Date",
-            "quality_flag": "Quality"
-        },
+        labels={"flow_mgd": "Flow Rate (MGD)", "date": "Date", "quality_flag": "Quality"},
     )
     fig_flow.update_layout(height=400)
     st.plotly_chart(fig_flow, use_container_width=True)

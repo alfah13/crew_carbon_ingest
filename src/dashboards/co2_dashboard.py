@@ -1,4 +1,3 @@
-# src/dashboards/co2_dashboard.py
 from datetime import date
 
 import pandas as pd
@@ -13,9 +12,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 @st.cache_data
 def get_table_stats():
-    """Get row counts for all tables"""
     engine = create_engine(DATABASE_URL)
-    
     stats = {}
     tables = {
         "CO2 Calculations": "crewcarbon_co2_removal_calculation",
@@ -23,7 +20,6 @@ def get_table_stats():
         "Plant Metadata": "wastewater_plant_metadata",
         "Plant Operations": "wastewater_plant_operation"
     }
-    
     with engine.connect() as conn:
         for display_name, table_name in tables.items():
             try:
@@ -32,15 +28,12 @@ def get_table_stats():
                 stats[display_name] = count
             except Exception as e:
                 stats[display_name] = f"Error: {e}"
-    
     return stats
 
 
 @st.cache_data
 def load_co2_data(plant_id=None, start_date=None, end_date=None, quality_flags=None):
-    """Load CO2 calculation data"""
     engine = create_engine(DATABASE_URL)
-
     query = """
         SELECT 
             plant_id,
@@ -54,7 +47,6 @@ def load_co2_data(plant_id=None, start_date=None, end_date=None, quality_flags=N
         FROM crewcarbon_co2_removal_calculation
         WHERE 1=1
     """
-
     params = {}
     if plant_id:
         query += " AND plant_id = %(plant_id)s"
@@ -70,9 +62,7 @@ def load_co2_data(plant_id=None, start_date=None, end_date=None, quality_flags=N
         query += f" AND quality_flag IN ({placeholders})"
         for i, flag in enumerate(quality_flags):
             params[f"flag_{i}"] = flag
-
     query += " ORDER BY date"
-
     df = pd.read_sql(query, engine, params=params)
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"])
@@ -81,9 +71,7 @@ def load_co2_data(plant_id=None, start_date=None, end_date=None, quality_flags=N
 
 @st.cache_data
 def load_calcium_readings(plant_id=None, start_date=None, end_date=None):
-    """Load raw calcium readings"""
     engine = create_engine(DATABASE_URL)
-
     query = """
         SELECT 
             plant_id,
@@ -95,7 +83,6 @@ def load_calcium_readings(plant_id=None, start_date=None, end_date=None):
         FROM crewcarbon_lab_reading
         WHERE parameter_name = 'calcium'
     """
-
     params = {}
     if plant_id:
         query += " AND plant_id = %(plant_id)s"
@@ -106,33 +93,69 @@ def load_calcium_readings(plant_id=None, start_date=None, end_date=None):
     if end_date:
         query += " AND datetime <= %(end_date)s"
         params["end_date"] = end_date
-
     query += " ORDER BY datetime"
-
     df = pd.read_sql(query, engine, params=params)
     if not df.empty:
         df["datetime"] = pd.to_datetime(df["datetime"])
     return df
 
 
+@st.cache_data
+def load_ph_data(plant_id=None, start_date=None, end_date=None):
+    engine = create_engine(DATABASE_URL)
+    query = """
+        SELECT 
+            plant_id,
+            plant_unit_id,
+            datetime,
+            parameter_name,
+            value,
+            unit
+        FROM crewcarbon_lab_reading
+        WHERE parameter_name = 'pH'
+    """
+    params = {}
+    if plant_id:
+        query += " AND plant_id = %(plant_id)s"
+        params["plant_id"] = plant_id
+    if start_date:
+        query += " AND datetime >= %(start_date)s"
+        params["start_date"] = start_date
+    if end_date:
+        query += " AND datetime <= %(end_date)s"
+        params["end_date"] = end_date
+    query += " ORDER BY datetime"
+    df = pd.read_sql(query, engine, params=params)
+    if not df.empty:
+        df["datetime"] = pd.to_datetime(df["datetime"])
+        df["date"] = df["datetime"].dt.date
+    return df
+
+
+def calculate_daily_ph_stats(ph_df):
+    if ph_df.empty:
+        return pd.DataFrame()
+    daily_stats = ph_df.groupby(["plant_id", "plant_unit_id", "date"]).agg({
+        "value": "mean"
+    }).reset_index()
+    daily_stats.columns = ["plant_id", "plant_unit_id", "date", "ph_mean"]
+    daily_stats["date"] = pd.to_datetime(daily_stats["date"])
+    return daily_stats
+
+
 # Dashboard
 st.set_page_config(page_title="CO2 Removal Dashboard", layout="wide")
 
-st.title("CO2 Removal Dashboard")
-st.markdown("Monitor Ca levels and CO2 removal in wastewater plants")
+st.title("Crew Carbon CO2 Removal Dashboard")
+st.markdown("Monitor Ca levels, pH, and CO2 removal in wastewater plants")
 
-# Sidebar filters
 st.sidebar.header("Filters")
-
-# Database Stats
 st.sidebar.header("Database Statistics")
 table_stats = get_table_stats()
 for table_name, count in table_stats.items():
     st.sidebar.metric(table_name, count)
-
 st.sidebar.markdown("---")
 
-# Get available plants
 engine = create_engine(DATABASE_URL)
 try:
     plants_df = pd.read_sql(
@@ -147,34 +170,31 @@ except Exception as e:
 selected_plant = st.sidebar.selectbox("Select Plant", plant_options)
 plant_filter = None if selected_plant == "All" else selected_plant
 
-# Date range
 col1, col2 = st.sidebar.columns(2)
 with col1:
     start_date = st.date_input("Start Date", value=date(2025, 4, 1))
 with col2:
     end_date = st.date_input("End Date", value=date(2025, 6, 30))
 
-# Quality flag filter
 st.sidebar.header("Data Quality")
 show_valid = st.sidebar.checkbox("Show VALID", value=True)
 show_invalid = st.sidebar.checkbox("Show INVALID", value=True)
 
-# Determine which quality flags to include
 quality_flags = []
 if show_valid:
     quality_flags.append("VALID")
 if show_invalid:
     quality_flags.append("INVALID")
 
-# Load data
 if quality_flags:
     co2_df = load_co2_data(plant_filter, start_date, end_date, quality_flags)
 else:
     co2_df = pd.DataFrame()
-
 ca_df = load_calcium_readings(plant_filter, start_date, end_date)
 
-# Show data quality breakdown
+ph_df = load_ph_data(plant_filter, start_date, end_date)
+ph_daily = calculate_daily_ph_stats(ph_df)
+
 if not co2_df.empty:
     st.sidebar.markdown("---")
     st.sidebar.subheader("Filtered Data Quality")
@@ -182,37 +202,35 @@ if not co2_df.empty:
     for flag, count in quality_counts.items():
         st.sidebar.metric(f"{flag} records", count)
 
-# KPIs
+if not ph_df.empty:
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("pH Data Statistics")
+    st.sidebar.metric("Total pH Measurements", len(ph_df))
+    st.sidebar.metric("Days with pH Data", len(ph_daily))
+
 st.header("Key Metrics")
 
 if not co2_df.empty:
     col1, col2, col3, col4 = st.columns(4)
-
     with col1:
         total_co2 = co2_df["co2_removed_metric_tons_per_day"].sum()
         st.metric("Total CO2 Removed", f"{total_co2:.2f} MT")
-
     with col2:
         avg_co2 = co2_df["co2_removed_metric_tons_per_day"].mean()
         st.metric("Avg Daily CO2", f"{avg_co2:.4f} MT/day")
-
     with col3:
         avg_ca_delta = co2_df["ca_delta_mg_per_l"].mean()
         st.metric("Avg Ca Delta", f"{avg_ca_delta:.2f} mg/L")
-
     with col4:
         total_days = len(co2_df)
         st.metric("Days Monitored", total_days)
 
-    # CO2 Removal Over Time
     st.header("CO2 Removal Over Time")
-    
     color_col = None
     if show_valid and show_invalid:
         color_col = "quality_flag"
     elif selected_plant == "All":
         color_col = "plant_id"
-    
     fig_co2 = px.line(
         co2_df,
         x="date",
@@ -228,21 +246,42 @@ if not co2_df.empty:
     fig_co2.update_layout(height=400)
     st.plotly_chart(fig_co2, use_container_width=True)
 
-    # Calcium Levels
+    # pH Data Visualization - Always daily average line plot, grouped by plant unit
+    if not ph_daily.empty:
+        st.header("Daily Average pH Over Time")
+        color_col_ph = "plant_unit_id"  # ✅ Group by plant_unit_id for lines
+
+        fig_ph = px.line(
+            ph_daily,
+            x="date",
+            y="ph_mean",
+            color=color_col_ph,
+            title="Daily Average pH Levels by Unit",
+            labels={
+                "ph_mean": "pH (Average)",
+                "date": "Date",
+                "plant_unit_id": "Unit"
+            },
+        )
+        fig_ph.update_layout(height=400)
+        st.plotly_chart(fig_ph, use_container_width=True)
+
+        # Table by day and unit
+        with st.expander("View Daily pH Averages Table"):
+            st.dataframe(
+                ph_daily.sort_values(["date", "plant_unit_id"], ascending=[False, True]),
+                use_container_width=True
+            )
+
     st.header("Calcium Levels Over Time")
-
-    # Upstream vs Downstream - Full Width
     fig_ca_calc = go.Figure()
-
     if selected_plant == "All":
         for plant in co2_df["plant_id"].unique():
             plant_data = co2_df[co2_df["plant_id"] == plant]
-            
             if show_valid and show_invalid:
                 for flag in plant_data["quality_flag"].unique():
                     flag_data = plant_data[plant_data["quality_flag"] == flag]
                     line_style = "solid" if flag == "VALID" else "dot"
-                    
                     fig_ca_calc.add_trace(
                         go.Scatter(
                             x=flag_data["date"],
@@ -284,7 +323,6 @@ if not co2_df.empty:
             for flag in co2_df["quality_flag"].unique():
                 flag_data = co2_df[co2_df["quality_flag"] == flag]
                 line_style = "solid" if flag == "VALID" else "dot"
-                
                 fig_ca_calc.add_trace(
                     go.Scatter(
                         x=flag_data["date"],
@@ -321,7 +359,6 @@ if not co2_df.empty:
                     line=dict(dash="dash"),
                 )
             )
-
     fig_ca_calc.update_layout(
         title="Calcium: Upstream vs Downstream",
         xaxis_title="Date",
@@ -330,13 +367,11 @@ if not co2_df.empty:
     )
     st.plotly_chart(fig_ca_calc, use_container_width=True)
 
-    # Calcium Delta - Full Width
     color_col_delta = None
     if show_valid and show_invalid:
         color_col_delta = "quality_flag"
     elif selected_plant == "All":
         color_col_delta = "plant_id"
-    
     fig_ca_delta = px.bar(
         co2_df,
         x="date",
@@ -352,15 +387,12 @@ if not co2_df.empty:
     fig_ca_delta.update_layout(height=400)
     st.plotly_chart(fig_ca_delta, use_container_width=True)
 
-    # Flow Rate
     st.header("Flow Rate Over Time")
-    
     color_col_flow = None
     if show_valid and show_invalid:
         color_col_flow = "quality_flag"
     elif selected_plant == "All":
         color_col_flow = "plant_id"
-    
     fig_flow = px.line(
         co2_df,
         x="date",
@@ -376,7 +408,6 @@ if not co2_df.empty:
     fig_flow.update_layout(height=400)
     st.plotly_chart(fig_flow, use_container_width=True)
 
-    # Data Table
     st.header("Raw Data")
     st.dataframe(
         co2_df[
@@ -393,8 +424,6 @@ if not co2_df.empty:
         ],
         use_container_width=True,
     )
-
-    # Download button
     csv = co2_df.to_csv(index=False)
     st.download_button(
         label="Download Data as CSV",

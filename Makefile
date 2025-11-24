@@ -53,6 +53,8 @@ run-all-pipelines:
 	@echo "    ██      ██████  █████   ██  █  ██     ██      ███████ ██████  ██████  ██    ██ ██ ██  ██ "
 	@echo "    ██      ██   ██ ██      ██ ███ ██     ██      ██   ██ ██   ██ ██   ██ ██    ██ ██  ██ ██ "
 	@echo "     ██████ ██   ██ ███████  ███ ███       ██████ ██   ██ ██   ██ ██████   ██████  ██   ████ "
+	@echo "Building Container..."
+	docker-compose up -d
 	@echo "Starting complete data pipeline..."
 	@echo "Step 1: Creating tables..."
 	docker-compose exec app python src/ingest/create_tables.py

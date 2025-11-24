@@ -1,5 +1,6 @@
 version: '3.8'
 
+
 services:
   postgres:
     image: postgres:15
@@ -11,6 +12,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
 
   app:
     build:
@@ -25,6 +27,7 @@ services:
       - postgres
     command: tail -f /dev/null
 
+
   dashboard:
     build:
       context: .
@@ -36,8 +39,29 @@ services:
       - .:/app
     environment:
       - DATABASE_URL=postgresql://crewcarbon:localdev@postgres:5432/carbon_mrv
+      - PYTHONPATH=/app
     depends_on:
       - postgres
 
+
+  jupyter:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
+    ports:
+      - "8888:8888"
+    volumes:
+      - .:/app
+      - jupyter_data:/root/.jupyter
+    environment:
+      - DATABASE_URL=postgresql://crewcarbon:localdev@postgres:5432/carbon_mrv
+      - PYTHONPATH=/app
+    depends_on:
+      - postgres
+    working_dir: /app
+
+
 volumes:
   postgres_data:
+  jupyter_data:

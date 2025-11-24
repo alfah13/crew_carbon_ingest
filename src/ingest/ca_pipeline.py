@@ -46,10 +46,10 @@ def run_ca_pipeline():
         },
         metadata_col_name="reading_metadata",
     )
-    logger.info(f"[run_ca_pipeline]: Done with transform_crew_data")
+    logger.info("[run_ca_pipeline]: Done with transform_crew_data")
     transformed_crew_lab_ca["reading_metadata"] = transformed_crew_lab_ca["reading_metadata"].apply(
         lambda x: (json.dumps({k: (None if pd.isna(v) else v) for k, v in x.items()}) if isinstance(x, dict) else None)
     )
-    logger.info(f"[run_ca_pipeline]: Done with compressing reading_metadata")
+    logger.info("[run_ca_pipeline]: Done with compressing `reading_metadata` ")
 
     return transformed_crew_lab_ca

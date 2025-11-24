@@ -29,12 +29,6 @@ shell:
 python:
 	docker-compose exec app python
 
-ipython:
-	docker-compose exec app ipython
-
-logs:
-	docker-compose logs -f
-
 db-shell:
 	docker-compose exec postgres psql -U crewcarbon -d carbon_mrv
 
@@ -53,19 +47,17 @@ setup-db:
 	docker-compose exec postgres psql -U crewcarbon -d carbon_mrv -f /docker-entrypoint-initdb.d/01_init_timescale.sql
 	@echo "✓ Database tables created (regular + hypertables)"
 
-check-hypertables:
-	@echo "Checking TimescaleDB hypertables..."
-	docker-compose exec postgres psql -U crewcarbon -d carbon_mrv -c "\d+ sensor_measurements"
-	docker-compose exec postgres psql -U crewcarbon -d carbon_mrv -c "SELECT * FROM timescaledb_information.hypertables;"
-
-check-regular-tables:
-	@echo "Checking regular PostgreSQL tables..."
-	docker-compose exec postgres psql -U crewcarbon -d carbon_mrv -c "\dt"
-
-
-run-ph-pipeline:
-	docker-compose exec app python scripts/ph_sensor_pipeline.py
-
-run-ph-pipeline-logs:
-	docker-compose exec app python scripts/ph_sensor_pipeline.py 2>&1 | tee pipeline.log
-
+run-all-pipelines:
+	@echo "     ██████ ██████  ███████ ██     ██      ██████  █████  ██████  ██████   ██████  ███    ██ "
+	@echo "    ██      ██   ██ ██      ██     ██     ██      ██   ██ ██   ██ ██   ██ ██    ██ ████   ██ "
+	@echo "    ██      ██████  █████   ██  █  ██     ██      ███████ ██████  ██████  ██    ██ ██ ██  ██ "
+	@echo "    ██      ██   ██ ██      ██ ███ ██     ██      ██   ██ ██   ██ ██   ██ ██    ██ ██  ██ ██ "
+	@echo "     ██████ ██   ██ ███████  ███ ███       ██████ ██   ██ ██   ██ ██████   ██████  ██   ████ "
+	@echo "Starting complete data pipeline..."
+	@echo "Step 1: Creating tables..."
+	docker-compose exec app python src/ingest/create_tables.py
+	@echo "Step 2: Running data pipeline..."
+	docker-compose exec app python src/ingest/run_data_pipeline.py
+	@echo "Step 3: Running MRV calculations..."
+	docker-compose exec app python src/ingest/run_mrv_pipeline.py
+	@echo "✓ Pipeline complete!"

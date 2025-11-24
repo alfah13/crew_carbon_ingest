@@ -100,6 +100,11 @@ This is the directory where tables, schemas and database related variables are s
 This is the directory where MRV related helpers are saved.
 - `utils.py`: Functions for CO2 removal calculations - functions are defined as `calculate_co2_removal_from_sources` and `bulk_calculate_co2_removal`.
 
+## `/tests`
+This is the directly where unit tests would be added. Right now a simple test MRV calcs was created to run using the following command
+```
+docker-compose exec app pytest tests/test_mrv_calcs.py::test_calculate_co2_removal_valid_data -v
+```
 
 # Data Transformation Logic (Ca and pH)
 

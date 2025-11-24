@@ -85,7 +85,7 @@ class WasteWaterPlantOperation(Base):
 class CO2RemovalCalculation(Base):
     """Calculated CO2 removal with intermediate values"""
 
-    __tablename__ = "crewcarbon_co2_removal_calculations"
+    __tablename__ = "crewcarbon_co2_removal_calculation"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     # ops_id = Column(Integer, ForeignKey(
@@ -112,5 +112,5 @@ class CO2RemovalCalculation(Base):
 
     # Metadata
     calculation_version = Column(String(20), default="v1.0")
-    quality_flag = Column(String(50), nullable=True)
+    quality_flag = Column(JSON, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

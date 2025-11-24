@@ -26,7 +26,7 @@ def load_co2_data(plant_id=None, start_date=None, end_date=None):
             flow_mgd,
             co2_removed_metric_tons_per_day,
             quality_flag
-        FROM crew_carbon_co2_removal_calculations
+        FROM crewcarbon_co2_removal_calculation
         WHERE 1=1
     """
 
@@ -61,7 +61,7 @@ def load_calcium_readings(plant_id=None, start_date=None, end_date=None):
             parameter_name,
             value,
             unit
-        FROM crew_carbon_lab_readings
+        FROM crewcarbon_lab_reading
         WHERE parameter_name = 'calcium'
     """
 
@@ -244,6 +244,7 @@ st.dataframe(
             "ca_delta_mg_per_l",
             "flow_mgd",
             "co2_removed_metric_tons_per_day",
+            "quality_flag"
         ]
     ],
     use_container_width=True,

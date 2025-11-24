@@ -5,16 +5,16 @@ import pandas as pd
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql import func
-
-from src.models.schemas import CO2RemovalCalculation, CrewCarbonLabReadings, WasteWaterPlantOps
+from src.utils.logging_config import setup_logger
+from src.models.schemas import CO2RemovalCalculation, CrewCarbonLabReading, WasteWaterPlantOperation
 
 
 def calculate_co2_removal_from_sources(
     session: Session,
-    plant_id: str,  # Changed to String
+    plant_id: str,
     calc_date: date,
-    quality_flag: str = None,
-) -> CO2RemovalCalculation:
+    quality_flag: str = "VALID",
+) -> CO2RemovalCalculation | None:
     """
     Calculate CO2 removal by joining ops data and lab readings
 
@@ -22,72 +22,76 @@ def calculate_co2_removal_from_sources(
         session: SQLAlchemy session
         plant_id: Plant identifier (string like 'PLANT_A')
         calc_date: Date to calculate for
-        quality_flag: Optional quality flag
+        quality_flag: Optional quality flag (default: "VALID")
 
     Returns:
-        CO2RemovalCalculation record
+        CO2RemovalCalculation record or None if data constraints violated
     """
 
     # Get ops data for this plant and date
     ops = (
-        session.query(WasteWaterPlantOps)
+        session.query(WasteWaterPlantOperation)
         .filter(
-            WasteWaterPlantOps.plant_id == plant_id,
-            WasteWaterPlantOps.date == calc_date,
+            WasteWaterPlantOperation.plant_id == plant_id,
+            WasteWaterPlantOperation.date == calc_date,
         )
         .first()
     )
 
     if not ops:
-        raise ValueError(f"No ops data found for {plant_id} on {calc_date}")
+        print(f"✗ No ops data found for {plant_id} on {calc_date}")
+        return None
 
     # Get calcium readings for this plant and date
-    # Assuming upstream is 'primary_clarifier' and downstream is 'secondary_clarifier'
     ca_upstream_reading = (
-        session.query(CrewCarbonLabReadings)
+        session.query(CrewCarbonLabReading)
         .filter(
-            CrewCarbonLabReadings.plant_id == plant_id,
-            CrewCarbonLabReadings.parameter_name == "calcium",
-            CrewCarbonLabReadings.plant_unit_id == "primary_clarifier",
-            func.date(CrewCarbonLabReadings.datetime) == calc_date,
+            CrewCarbonLabReading.plant_id == plant_id,
+            CrewCarbonLabReading.parameter_name == "calcium",
+            CrewCarbonLabReading.plant_unit_id == "primary_clarifier",
+            func.date(CrewCarbonLabReading.datetime) == calc_date,
         )
         .first()
     )
 
     ca_downstream_reading = (
-        session.query(CrewCarbonLabReadings)
+        session.query(CrewCarbonLabReading)
         .filter(
-            CrewCarbonLabReadings.plant_id == plant_id,
-            CrewCarbonLabReadings.parameter_name == "calcium",
-            CrewCarbonLabReadings.plant_unit_id == "secondary_clarifier",
-            func.date(CrewCarbonLabReadings.datetime) == calc_date,
+            CrewCarbonLabReading.plant_id == plant_id,
+            CrewCarbonLabReading.parameter_name == "calcium",
+            CrewCarbonLabReading.plant_unit_id == "secondary_clarifier",
+            func.date(CrewCarbonLabReading.datetime) == calc_date,
         )
         .first()
     )
 
+    # Check for missing required data - skip if not present
     if not ca_upstream_reading or not ca_downstream_reading:
-        raise ValueError(f"Missing calcium readings for {plant_id} on {calc_date}")
+        print(f"✗ Missing calcium readings for {plant_id} on {calc_date} - skipping")
+        return None
 
-    # Extract values
     ca_upstream = ca_upstream_reading.value
     ca_downstream = ca_downstream_reading.value
     flow_mgd = ops.actual_eff_flow_mgd
 
-    if flow_mgd is None:
-        raise ValueError(f"No flow data for {plant_id} on {calc_date}")
+    # Check for missing flow data
+    if flow_mgd is None or flow_mgd <= 0:
+        print(f"✗ Missing or invalid flow data for {plant_id} on {calc_date} - skipping")
+        return None
 
-    # Calculate intermediate values
-    ca_delta = ca_downstream - ca_upstream
-    flow_m3_day = flow_mgd * 3785.41
-    flow_l_day = flow_m3_day * 1000
-
-    # Molecular weights (g/mol) - hardcoded for reliability
+    # Molecular weights (g/mol)
     MW_Ca = 40.078
     MW_CaCO3 = 100.0869
     MW_CO2 = 44.0095
 
     # Calculate intermediate values
     ca_delta = ca_downstream - ca_upstream
+
+    # Check for negative or zero delta - flag as INVALID but calculate
+    if ca_delta <= 0:
+        quality_flag = "INVALID"
+
+    # Flow calculations
     flow_m3_day = flow_mgd * 3785.41
     flow_l_day = flow_m3_day * 1000
 
@@ -102,7 +106,7 @@ def calculate_co2_removal_from_sources(
 
     # Store calculation
     calc = CO2RemovalCalculation(
-        plant_id=plant_id,  # Now a string
+        plant_id=plant_id,
         date=calc_date,
         ca_upstream_mg_per_l=ca_upstream,
         ca_downstream_mg_per_l=ca_downstream,
@@ -118,8 +122,12 @@ def calculate_co2_removal_from_sources(
         quality_flag=quality_flag,
     )
 
-    session.add(calc)
-    session.commit()
+    # Print the calculation details
+    from sqlalchemy import inspect
+    calc_dict = {c.name: getattr(calc, c.name) for c in inspect(calc.__class__).mapper.columns}
+    flag_symbol = "✓" if quality_flag == "VALID" else "⚠"
+    print(f"{flag_symbol} {plant_id} {calc_date}: CO2={co2_mt_day:.6f} MT/day [{quality_flag}]")
+
     return calc
 
 
@@ -129,38 +137,49 @@ def bulk_calculate_co2_removal(
     """Calculate CO2 removal for a range of dates"""
 
     # Get all ops dates for this plant
-    query = session.query(WasteWaterPlantOps.date).filter(WasteWaterPlantOps.plant_id == plant_id)
+    query = session.query(WasteWaterPlantOperation.date).filter(
+        WasteWaterPlantOperation.plant_id == plant_id
+    )
 
     if start_date:
-        query = query.filter(WasteWaterPlantOps.date >= start_date)
+        query = query.filter(WasteWaterPlantOperation.date >= start_date)
     if end_date:
-        query = query.filter(WasteWaterPlantOps.date <= end_date)
+        query = query.filter(WasteWaterPlantOperation.date <= end_date)
 
     dates = [row[0] for row in query.distinct().all()]
 
     results = []
+    skipped_count = 0
+    
     for calc_date in dates:
-        try:
-            calc = calculate_co2_removal_from_sources(
-                session=session,
-                plant_id=plant_id,
-                calc_date=calc_date,
-                quality_flag="VALID",
-            )
+        calc = calculate_co2_removal_from_sources(
+            session=session,
+            plant_id=plant_id,
+            calc_date=calc_date,
+            quality_flag="VALID",
+        )
+        
+        if calc is not None:
             results.append(calc)
-            print(f"✓ Calculated CO2 for {plant_id} on {calc_date}: {calc.co2_removed_metric_tons_per_day:.6f} MT/day")
-        except ValueError as e:
-            print(f"✗ Skipped {calc_date}: {e}")
+            session.add(calc)
+        else:
+            skipped_count += 1
 
+    # Commit all valid calculations
+    session.commit()
+    
+    print(f"\n{plant_id}: {len(results)} records calculated, {skipped_count} skipped due to missing data")
+    
     return results
 
 
 # Usage
 if __name__ == "__main__":
+    logger = setup_logger(__name__)
     DATABASE_URL = os.getenv("DATABASE_URL")
     engine = create_engine(DATABASE_URL)
-    CO2RemovalCalculation.__table__.drop(engine, checkfirst=True)
-    CO2RemovalCalculation.__table__.create(engine, checkfirst=True)
+    # CO2RemovalCalculation.__table__.drop(engine, checkfirst=True)
+    # CO2RemovalCalculation.__table__.create(engine, checkfirst=True)
 
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -169,7 +188,7 @@ if __name__ == "__main__":
     all_results = {}
 
     for plant_id in plants:
-        print(f"\n=== Calculating {plant_id} ===")
+        logger.info(f"\n=== Calculating {plant_id} ===")
         results = bulk_calculate_co2_removal(
             session=session,
             plant_id=plant_id,
@@ -178,13 +197,26 @@ if __name__ == "__main__":
         )
         all_results[plant_id] = results
 
-        total_co2 = sum(r.co2_removed_metric_tons_per_day for r in results)
-        avg_co2 = total_co2 / len(results) if results else 0
+        # Calculate totals only for VALID records
+        valid_results = [r for r in results if r.quality_flag == "VALID"]
+        invalid_count = len(results) - len(valid_results)
+        
+        total_co2 = sum(r.co2_removed_metric_tons_per_day for r in valid_results)
+        avg_co2 = total_co2 / len(valid_results) if valid_results else 0
 
-        print(f"✓ {plant_id}: {len(results)} dates")
-        print(f"  Total CO2: {total_co2:.2f} MT")
-        print(f"  Avg daily: {avg_co2:.4f} MT/day")
+        logger.info(f" {plant_id}: {len(results)} dates ({len(valid_results)} valid, {invalid_count} invalid)")
+        logger.info(f"  Total CO2 (valid only): {total_co2:.2f} MT")
+        logger.info(f"  Avg daily (valid only): {avg_co2:.4f} MT/day")
 
-    # Grand total
-    grand_total = sum(sum(r.co2_removed_metric_tons_per_day for r in results) for results in all_results.values())
-    print(f"\n=== Grand Total CO2 Removed: {grand_total:.2f} MT ===")
+    # Grand total (valid records only)
+    grand_total = sum(
+        sum(r.co2_removed_metric_tons_per_day for r in results if r.quality_flag == "VALID")
+        for results in all_results.values()
+    )
+    
+    total_records = sum(len(results) for results in all_results.values())
+    total_valid = sum(len([r for r in results if r.quality_flag == "VALID"]) for results in all_results.values())
+    
+    logger.info(f"\n=== Summary ===")
+    logger.info(f"Total records: {total_records} ({total_valid} valid)")
+    logger.info(f"Grand Total CO2 Removed (VALID only): {grand_total:.2f} MT")

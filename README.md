@@ -105,6 +105,10 @@ This is the directly where unit tests would be added. Right now a simple test MR
 ```
 docker-compose exec app pytest tests/test_mrv_calcs.py::test_calculate_co2_removal_valid_data -v
 ```
+or 
+```
+make test
+```
 
 # Data Transformation Logic (Ca and pH)
 

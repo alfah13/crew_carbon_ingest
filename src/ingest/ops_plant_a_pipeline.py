@@ -88,32 +88,3 @@ def run_ops_plant_a():
     logger.info("All dataframes standardized")
 
     return plant_a_combined_df
-
-
-# if __name__ == "__main__":
-#     import os
-
-#     import pandas as pd
-#     from sqlalchemy import create_engine
-
-#     from src.models.schemas import WasteWaterPlantOps
-#     from src.utils.logging_config import setup_logger
-
-#     DATABASE_URL = os.getenv("DATABASE_URL")
-#     engine = create_engine(DATABASE_URL)
-#     # TODO
-#     ##
-#     # WasteWaterPlantOps.__table__.drop(engine)
-
-#     ops_plant_data = run_ops_plant_a()
-
-#     print(f"Writing {len(ops_plant_data)} ops_plant_data...")
-#     ops_plant_data.to_sql(
-#         name=WasteWaterPlantOps.__tablename__,
-#         con=engine,
-#         # schema=WasteWaterPlantOps,
-#         if_exists="append",
-#         index=False,
-#         chunksize=500,
-#     )
-#     print("✓ Successfully wrote all data to ops_plant_data")

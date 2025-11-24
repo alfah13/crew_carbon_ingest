@@ -7,12 +7,10 @@ help:
 	@echo "down          - Stop containers"
 	@echo "shell         - Open bash shell in app container"
 	@echo "python        - Open Python REPL in app container"
-	@echo "ipython       - Open IPython shell in app container"
-	@echo "logs          - View container logs"
 	@echo "db-shell      - Open PostgreSQL shell"
-	@echo "run-pipeline  - Run full ingestion -> QAQC -> MRV pipeline"
 	@echo "test          - Run tests"
 	@echo "clean         - Remove all data and containers"
+	@echo "run-all-pipelines -Create or recreate tables and ingest data then calc MRV"
 
 up:
 	docker-compose up -d
@@ -32,9 +30,6 @@ python:
 db-shell:
 	docker-compose exec postgres psql -U crewcarbon -d carbon_mrv
 
-run-pipeline:
-	docker-compose exec app python scripts/run_pipeline.py
-
 test:
 	docker-compose exec app pytest tests/ -v
 
@@ -42,10 +37,6 @@ clean:
 	docker-compose down -v
 	rm -rf data/staging/* data/validated/* data/output/*
 	@echo "Cleaned up!"
-
-setup-db:
-	docker-compose exec postgres psql -U crewcarbon -d carbon_mrv -f /docker-entrypoint-initdb.d/01_init_timescale.sql
-	@echo "✓ Database tables created (regular + hypertables)"
 
 run-all-pipelines:
 	@echo "     ██████ ██████  ███████ ██     ██      ██████  █████  ██████  ██████   ██████  ███    ██ "

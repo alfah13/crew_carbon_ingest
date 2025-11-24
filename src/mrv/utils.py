@@ -70,7 +70,7 @@ def calculate_co2_removal_from_sources(
         .first()
     )
 
-    # ✅ Use validation functions from qaqc.mrv_utils
+    # Use validation functions from qaqc.mrv_utils
     should_calculate, quality_flag, validation_message = validate_all_inputs(
         ops, ca_upstream_reading, ca_downstream_reading, plant_id, calc_date, logger
     )

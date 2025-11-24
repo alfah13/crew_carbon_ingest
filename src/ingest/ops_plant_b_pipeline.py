@@ -89,25 +89,3 @@ def run_ops_plant_b():
             "source_file",
         ]
     ]
-
-
-# if __name__ == "__main__":
-#     DATABASE_URL = os.getenv("DATABASE_URL")
-#     engine = create_engine(DATABASE_URL)
-#     # TODO
-#     ##
-#     # WasteWaterPlantOps.__table__.drop(engine)
-
-#     # WasteWaterPlantOps.__table__.create(engine)
-#     ops_plant_data = run_ops_plant_b()
-
-#     print(f"Writing {len(ops_plant_data)} ops_plant_data...")
-#     ops_plant_data.to_sql(
-#         name=WasteWaterPlantOps.__tablename__,
-#         con=engine,
-#         # schema=WasteWaterPlantOps,
-#         if_exists="append",
-#         index=False,
-#         chunksize=500,
-#     )
-#     print("✓ Successfully wrote all data to ops_plant_data")

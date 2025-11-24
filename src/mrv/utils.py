@@ -131,3 +131,44 @@ def calculate_co2_removal_from_sources(
     logger.info(f"{flag_symbol} {plant_id} {calc_date}: CO2={co2_mt_day:.6f} MT/day [{quality_flag}]")
 
     return calc
+
+def bulk_calculate_co2_removal(
+    session: Session, plant_id: str, start_date: date = None, end_date: date = None
+) -> list[CO2RemovalCalculation]:
+    """Calculate CO2 removal for a range of dates"""
+
+    # Get all ops dates for this plant
+    query = session.query(WasteWaterPlantOperation.date).filter(
+        WasteWaterPlantOperation.plant_id == plant_id
+    )
+
+    if start_date:
+        query = query.filter(WasteWaterPlantOperation.date >= start_date)
+    if end_date:
+        query = query.filter(WasteWaterPlantOperation.date <= end_date)
+
+    dates = [row[0] for row in query.distinct().all()]
+
+    results = []
+    skipped_count = 0
+    
+    for calc_date in dates:
+        calc = calculate_co2_removal_from_sources(
+            session=session,
+            plant_id=plant_id,
+            calc_date=calc_date,
+            quality_flag="VALID",
+        )
+        
+        if calc is not None:
+            results.append(calc)
+            session.add(calc)
+        else:
+            skipped_count += 1
+
+    # Commit all valid calculations
+    session.commit()
+    
+    print(f"\n{plant_id}: {len(results)} records calculated, {skipped_count} skipped due to missing data")
+    
+    return results

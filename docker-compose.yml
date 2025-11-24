@@ -17,7 +17,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
     volumes:
       - .:/app
     environment:
@@ -31,7 +31,7 @@ services:
   dashboard:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
     command: streamlit run src/dashboards/co2_dashboard.py --server.port=8501 --server.address=0.0.0.0
     ports:
       - "8501:8501"
@@ -47,7 +47,7 @@ services:
   jupyter:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
     command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
     ports:
       - "8888:8888"

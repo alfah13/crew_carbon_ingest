@@ -29,6 +29,7 @@
 - **Step 1**: Build Container by running `docker-compose build`
 - **Step 2**: Start Services  by running `docker-compose up -d`
 - **Step 3**: Run the command to create base schema defined tables and run all (data and MRV) pipelines by running  `make run-all-pipelines`. For more information see Makefile section. The make command provided above will run the following `docker-compose` commands.
+
 ```
 	docker-compose up -d
     # to reset the database tables and recreate the base tables

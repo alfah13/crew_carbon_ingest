@@ -113,4 +113,5 @@ class CO2RemovalCalculation(Base):
     # Metadata
     calculation_version = Column(String(20), default="v1.0")
     quality_flag = Column(String, nullable=True)
+    validation_message = Column(String(500), nullable=True)  # ← ADD THIS
     created_at = Column(DateTime, server_default=func.now())

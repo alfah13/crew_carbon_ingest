@@ -22,7 +22,6 @@ def calculate_co2_removal_from_sources(
     session: Session,
     plant_id: str,
     calc_date: date,
-    quality_flag: str = "VALID",
 ) -> CO2RemovalCalculation | None:
     """
     Calculate CO2 removal by joining ops data and lab readings
@@ -31,7 +30,6 @@ def calculate_co2_removal_from_sources(
         session: SQLAlchemy session
         plant_id: Plant identifier (string like 'PLANT_A')
         calc_date: Date to calculate for
-        quality_flag: Optional quality flag (default: "VALID")
 
     Returns:
         CO2RemovalCalculation record or None if data constraints violated
@@ -70,13 +68,16 @@ def calculate_co2_removal_from_sources(
         .first()
     )
 
-    # Use validation functions from qaqc.mrv_utils
+    # Run all validations - THIS IS KEY
     should_calculate, quality_flag, validation_message = validate_all_inputs(
         ops, ca_upstream_reading, ca_downstream_reading, plant_id, calc_date, logger
     )
 
-    # If validation failed critically, skip calculation
+    # If validation failed critically, return None (but log why)
     if not should_calculate:
+        logger.warning(
+            f"✗ Skipping {plant_id} {calc_date}: {quality_flag} - {validation_message}"
+        )
         return None
 
     # Extract values (we know they exist from validation)
@@ -105,7 +106,7 @@ def calculate_co2_removal_from_sources(
     co2_mg = caco3_mg * co2_to_caco3
     co2_mt_day = co2_mg / 1_000_000_000
 
-    # Store calculation
+    # Create calculation record with BOTH quality_flag AND validation_message
     calc = CO2RemovalCalculation(
         plant_id=plant_id,
         date=calc_date,
@@ -121,25 +122,41 @@ def calculate_co2_removal_from_sources(
         co2_mg=co2_mg,
         co2_removed_metric_tons_per_day=co2_mt_day,
         quality_flag=quality_flag,
+        validation_message=validation_message,  # ← ADD THIS
     )
 
-    # Log the calculation details
+    # Log the calculation
     flag_symbol = "✓" if quality_flag == "VALID" else "⚠"
-    logger.info(f"{flag_symbol} {plant_id} {calc_date}: CO2={co2_mt_day:.6f} MT/day [{quality_flag}]")
+    logger.info(
+        f"{flag_symbol} {plant_id} {calc_date}: "
+        f"CO2={co2_mt_day:.6f} MT/day "
+        f"[{quality_flag}]"
+    )
 
     if validation_message:
-        logger.info(f"  Note: {validation_message}")
+        logger.info(f"  └─ {validation_message}")
 
     return calc
 
 
 def bulk_calculate_co2_removal(
-    session: Session, plant_id: str, start_date: date = None, end_date: date = None
-) -> list[CO2RemovalCalculation]:
-    """Calculate CO2 removal for a range of dates"""
+    session: Session, 
+    plant_id: str, 
+    start_date: date = None, 
+    end_date: date = None
+) -> tuple[list[CO2RemovalCalculation], dict]:
+
+    """
+    Calculate CO2 removal for a range of dates
+    
+    Returns:
+        dict with summary stats including calculated/skipped/invalid counts
+    """
 
     # Get all ops dates for this plant
-    query = session.query(WasteWaterPlantOperation.date).filter(WasteWaterPlantOperation.plant_id == plant_id)
+    query = session.query(WasteWaterPlantOperation.date).filter(
+        WasteWaterPlantOperation.plant_id == plant_id
+    )
 
     if start_date:
         query = query.filter(WasteWaterPlantOperation.date >= start_date)
@@ -150,24 +167,48 @@ def bulk_calculate_co2_removal(
 
     results = []
     skipped_count = 0
+    quality_flags = {}  # Track distribution of quality flags
+
+    logger.info(f"Processing {len(dates)} dates for {plant_id}")
 
     for calc_date in dates:
         calc = calculate_co2_removal_from_sources(
             session=session,
             plant_id=plant_id,
             calc_date=calc_date,
-            quality_flag="VALID",
         )
 
         if calc is not None:
             results.append(calc)
             session.add(calc)
+            
+            # Track quality flags
+            flag = calc.quality_flag
+            quality_flags[flag] = quality_flags.get(flag, 0) + 1
         else:
             skipped_count += 1
 
     # Commit all valid calculations
     session.commit()
 
-    print(f"\n{plant_id}: {len(results)} records calculated, {skipped_count} skipped due to missing data")
+    # Print summary
+    summary = {
+        'plant_id': plant_id,
+        'total_dates': len(dates),
+        'calculated': len(results),
+        'skipped': skipped_count,
+        'quality_flags': quality_flags,
+    }
 
-    return results
+    logger.info(f"Summary for {plant_id}")
+    logger.info(f"{'='*60}")
+    logger.info(f"Total dates processed:        {summary['total_dates']}")
+    logger.info(f"Successfully calculated:     {summary['calculated']}")
+    logger.info(f"Skipped (no data):           {summary['skipped']}")
+    logger.info(f"Quality Flag Breakdown:")
+    for flag, count in sorted(quality_flags.items()):
+        pct = (count / len(results) * 100) if results else 0
+        logger.info(f"  {flag:20s}: {count:4d} ({pct:5.1f}%)")
+    logger.info(f"{'='*60}\n")
+
+    return results, summary

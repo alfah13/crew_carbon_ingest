@@ -49,8 +49,8 @@ def run_ph_pipeline():
             "unit_type_id": CrewCarbonLabReading.plant_unit_id.name,
         },
         column_dtype_mapper={
-            CrewCarbonLabReading.value.name: "float64",
-            CrewCarbonLabReading.datetime.name: "datetime64[ns]",
+            "Measurement value": "float64",
+            "Timestamp": "datetime64[ns]",
         },
         metadata_col_name="reading_metadata",
     )

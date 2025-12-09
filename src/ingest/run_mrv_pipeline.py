@@ -19,7 +19,7 @@ if __name__ == "__main__":
     all_results = {}
 
     for plant_id in plants:
-        logger.info(f"\n=== Calculating {plant_id} ===")
+        logger.info(f"=== Calculating {plant_id} ===")
         results = bulk_calculate_co2_removal(
             session=session,
             plant_id=plant_id,
@@ -48,6 +48,6 @@ if __name__ == "__main__":
     total_records = sum(len(results) for results in all_results.values())
     total_valid = sum(len([r for r in results if r.quality_flag == "VALID"]) for results in all_results.values())
 
-    logger.info(f"\n=== Summary ===")
+    logger.info(f"=== Summary ===")
     logger.info(f"Total records: {total_records} ({total_valid} valid)")
     logger.info(f"Grand Total CO2 Removed (VALID only): {grand_total:.2f} MT")
